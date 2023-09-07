@@ -60,7 +60,6 @@ jobs:
             const files = await readdir('./memes');
 
             const filesAsString = files.join(',');
-
             const expectedFilesAsString = Object.keys(expectedFileHashes).join(',');
 
             if (filesAsString !== expectedFilesAsString) {
@@ -78,7 +77,6 @@ jobs:
               const hash = createHash('sha256');
               hash.update(await readFile(`./memes/${file}`));
               const fileHash = hash.digest('hex');
-              console.log(`File ${fileHash}, expected ${expectedFileHashes[file]}`)
 
               if (fileHash !== expectedFileHashes[file]) {
                 console.log(
