@@ -1,61 +1,35 @@
-import fs from 'node:fs'; // import fs module to read or write files
-import client from 'node:https';
+import { promises as fs } from 'node:fs';
+import fetch from 'node-fetch';
+import parser from 'node-html-parser';
 
-const memeUrl = 'https://memegen-link-examples-upleveled.netlify.app/'; // the memepage Url
-const folderPath = './memes';
-
-// fetch function for HTML & possibly more (the images)
-// translating response into text and saving it in responseText
-
-const response = await fetch(memeUrl);
-const responseText = await response.text();
-
-// defining function declaration for filtering the responseText for image urls by using regex
-
-function filterImageUrls(data) {
-  const regEx = /src="https:\/\/api.*\.jpg\?width=300/g;
-  let match;
-  const results = [];
-  let i = 0;
-  while ((match = regEx.exec(data)) !== null && i < 10) {
-    // console.log(match[0].slice(5));
-    results.push(match[0].slice(5));
-    i++;
-  }
-  return results;
-}
-
-// defining function declaration for downloading images
-
-function saveImage(urls, filepath) {
-  client.get(urls, (res) => {
-    res.pipe(fs.createWriteStream(filepath));
-  });
-}
-
-// creating a folder called meme
-
-if (!fs.existsSync(folderPath)) {
-  // check if folder already exists
-  fs.mkdirSync(folderPath); // creating folder
-}
-
-// saving filtered image urls to an array
-
-const filteredUrls = await filterImageUrls(responseText);
-
-// looping through images and assigning download location and
-
-let counter = 1;
-const dec = 0;
-
-for (let i = 0; i < filteredUrls.length; i++) {
-  // console.log(filteredUrls[i]);
-  counter = i + 1;
-
-  if (i < 9) {
-    saveImage(filteredUrls[i], folderPath + `/${dec}${counter}.jpg`);
+fs.mkdir('./memes', { recursive: true }, function (err) {
+  if (err) {
+    console.log(err);
   } else {
-    saveImage(filteredUrls[i], folderPath + `/${counter}.jpg`);
+    console.log('New directory successfully created.');
   }
+});
+
+const response = await fetch(
+  'https://memegen-link-examples-upleveled.netlify.app/',
+);
+const data = await response.text();
+const body = await parser.parse(data).querySelectorAll('img');
+
+function formatNumber(n) {
+  return n > 9 ? '' + n : '0' + n;
+}
+
+const downloadImage = async (url, path) => {
+  const response1 = await fetch(url);
+  const blob = await response1.blob();
+  const arrayBuffer = await blob.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+  await fs.writeFile(path, buffer);
+};
+
+for (let i = 0; i <= 9; i++) {
+  const imageLink = body[i].getAttribute('src');
+
+  await downloadImage(imageLink, `./memes/${formatNumber(i + 1)}.jpg`);
 }
