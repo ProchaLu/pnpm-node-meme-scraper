@@ -30,12 +30,16 @@ const getMemes = async () => {
   });
   // fetch the 10 images and put it in the memes folder
   // start progress bar
+  function format(n) {
+    return (n < 10 ? '0' : '') + n;
+  }
+
   bar.start(10, 0);
   for (let i = 0; i < memeArray.length; i++) {
     const getImages = async () => {
       const imageResponse = await fetch(memeArray[i]);
       const content = await imageResponse.buffer();
-      fs.writeFile(`./memes/${i}.jpg`, content, () => {
+      fs.writeFile(`./memes/${format(i + 1)}.jpg`, content, () => {
         console.log(`
         Picture ${i + 1} download complete`);
       });
