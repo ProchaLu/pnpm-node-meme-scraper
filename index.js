@@ -44,8 +44,6 @@ if (!fs.existsSync(folderPath)) {
 
 const filteredUrls = await filterImageUrls(responseText);
 
-console.log(filteredUrls);
-
 // looping through images and assigning download location and
 
 let counter = 1;
