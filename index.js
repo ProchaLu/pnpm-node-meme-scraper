@@ -1,82 +1,63 @@
-// import node modules and npm packages
-import fs from 'node:fs';
-import cheerio from 'cheerio';
-import cliProgress from 'cli-progress';
-import fetch from 'node-fetch';
+import fs from 'node:fs'; // import fs module to read or write files
+import client from 'node:https';
 
-const memeWebsite = 'https://memegen-link-examples-upleveled.netlify.app/';
-const memeArray = [];
+const memeUrl = 'https://memegen-link-examples-upleveled.netlify.app/'; // the memepage Url
+const folderPath = './memes';
 
-// create folder
-fs.mkdir('./memes', { recursive: true }, (err) => {
-  if (err) {
-    return console.error(err);
+// fetch function for HTML & possibly more (the images)
+// translating response into text and saving it in responseText
+
+const response = await fetch(memeUrl);
+const responseText = await response.text();
+
+// defining function declaration for filtering the responseText for image urls by using regex
+
+function filterImageUrls(data) {
+  const regEx = /src="https:\/\/api.*\.jpg\?width=300/g;
+  let match;
+  const results = [];
+  let i = 0;
+  while ((match = regEx.exec(data)) !== null && i < 10) {
+    // console.log(match[0].slice(5));
+    results.push(match[0].slice(5));
+    i++;
   }
-});
-// create progress bar
-const bar = new cliProgress.SingleBar({}, cliProgress.Presets.shades_classic);
+  return results;
+}
 
-// Fetch HTML from the Website
-const getMemes = async () => {
-  const response = await fetch(memeWebsite);
-  const body = await response.text();
-  const $ = cheerio.load(body);
-  // put the first 10 images in an array
-  $('img').each((i, img) => {
-    if (i < 10) {
-      memeArray.push(img.attribs.src);
-      // attribs cheerio function, help from https://npmdoc.github.io/node-npmdoc-cheerio/build/apidoc.html
-    }
+// defining function declaration for downloading images
+
+function saveImage(urls, filepath) {
+  client.get(urls, (res) => {
+    res.pipe(fs.createWriteStream(filepath));
   });
-  // fetch the 10 images and put it in the memes folder
-  // start progress bar
-  function format(n) {
-    return (n < 10 ? '0' : '') + n;
-  }
+}
 
-  bar.start(10, 0);
-  for (let i = 0; i < memeArray.length; i++) {
-    const getImages = async () => {
-      const imageResponse = await fetch(memeArray[i]);
-      const content = await imageResponse.buffer();
-      fs.writeFile(`./memes/${format(i + 1)}.jpg`, content, () => {
-        console.log(`
-        Picture ${i + 1} download complete`);
-      });
-    };
-    await getImages(); // run the async await function until i = 9
-    bar.increment(1); // increment progress bar by 1
-  }
-  bar.stop(); // porgress bar stop
-};
+// creating a folder called meme
 
-// create your own meme if the user input is there
-if (process.argv[2] && process.argv[3] && process.argv[4]) {
-  const memeName = process.argv[4];
-  const memeUpText = process.argv[2];
-  const memeDownText = process.argv[3];
-  // create custom meme folder
-  fs.mkdir('./custom-memes', { recursive: true }, (err) => {
-    if (err) {
-      return console.error(err);
-    }
-  });
-  // fetch your own meme
-  const getOwnMeme = async () => {
-    const ownImageResponse = await fetch(
-      `https://api.memegen.link/images/${memeName}/${memeUpText}/${memeDownText}.jpg`,
-    );
-    const ownMeme = await ownImageResponse.buffer();
-    // write own meme into folder
-    fs.writeFile(
-      `./custom-memes/${memeName}${memeUpText}${memeDownText}.jpg`,
-      ownMeme,
-      () => {
-        console.log(`Custom ${memeName}meme download complete`);
-      },
-    );
-  };
-  await getOwnMeme();
-} else {
-  await getMemes();
+if (!fs.existsSync(folderPath)) {
+  // check if folder already exists
+  fs.mkdirSync(folderPath); // creating folder
+}
+
+// saving filtered image urls to an array
+
+const filteredUrls = await filterImageUrls(responseText);
+
+console.log(filteredUrls);
+
+// looping through images and assigning download location and
+
+let counter = 1;
+const dec = 0;
+
+for (let i = 0; i < filteredUrls.length; i++) {
+  // console.log(filteredUrls[i]);
+  counter = i + 1;
+
+  if (i < 9) {
+    saveImage(filteredUrls[i], folderPath + `/${dec}${counter}.jpg`);
+  } else {
+    saveImage(filteredUrls[i], folderPath + `/${counter}.jpg`);
+  }
 }
