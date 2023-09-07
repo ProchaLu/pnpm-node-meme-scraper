@@ -61,11 +61,7 @@ jobs:
 
             const filesAsString = files.join(',');
 
-            console.log('filesAsString', filesAsString);
-
             const expectedFilesAsString = Object.keys(expectedFileHashes).join(',');
-
-            console.log('expectedFilesAsString', expectedFilesAsString);
 
             if (filesAsString !== expectedFilesAsString) {
               console.log(
@@ -82,6 +78,7 @@ jobs:
               const hash = createHash('sha256');
               hash.update(await readFile(`./memes/${file}`));
               const fileHash = hash.digest('hex');
+              console.log(`File ${fileHash}, expected ${expectedFileHashes[file]}`)
 
               if (fileHash !== expectedFileHashes[file]) {
                 console.log(
