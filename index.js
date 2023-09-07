@@ -1,73 +1,63 @@
-import fs from 'node:fs';
-import fetch from 'node-fetch';
-import { parse } from 'node-html-parser';
+import fs from 'node:fs'; // import fs module to read or write files
+import client from 'node:https';
 
-// Declare websiteUrl variable
-const websiteUrl = 'https://memegen-link-examples-upleveled.netlify.app/'; // Replace with the actual website URL
+const memeUrl = 'https://memegen-link-examples-upleveled.netlify.app/'; // the memepage Url
+const folderPath = './memes';
 
-const directoryPath = 'memes';
-// Check if the directory already exists
-if (!fs.existsSync(directoryPath)) {
-  // If it doesn't exist, create the directory
-  fs.mkdirSync(directoryPath);
-  console.log(`Directory '${directoryPath}' created successfully.`);
-} else {
-  console.log(`Directory '${directoryPath}' already exists.`);
+// fetch function for HTML & possibly more (the images)
+// translating response into text and saving it in responseText
+
+const response = await fetch(memeUrl);
+const responseText = await response.text();
+
+// defining function declaration for filtering the responseText for image urls by using regex
+
+function filterImageUrls(data) {
+  const regEx = /src="https:\/\/api.*\.jpg\?width=300/g;
+  let match;
+  const results = [];
+  let i = 0;
+  while ((match = regEx.exec(data)) !== null && i < 10) {
+    // console.log(match[0].slice(5));
+    results.push(match[0].slice(5));
+    i++;
+  }
+  return results;
 }
 
-fetch(websiteUrl)
-  .then((response) => {
-    if (response.ok) {
-      return response.text();
-    } else {
-      throw new Error(`Failed to fetch the website: ${response.statusText}`);
-    }
-  })
-  .then((html) => {
-    // Parse the HTML content
-    const root = parse(html);
+// defining function declaration for downloading images
 
-    // select all <img> elements and extract their src attributes
-    const imgElements = root.querySelectorAll('img');
-    const imgSrcList = imgElements
-      .map((img) => img.getAttribute('src'))
-      .filter((src) => src);
-
-    // limit the number of images to download
-    const maxImagesToDownload = 10;
-
-    // maxImagesToDownload Loop and Download (use filePath and imageUrl)
-    for (
-      let index = 0;
-      index < imgSrcList.length && index < maxImagesToDownload;
-      index++
-    ) {
-      const src = imgSrcList[index];
-
-      //every number under 10 gets a 0 before its index+1. if 10 its just index+1
-      const fileName = `${index + 1 < 10 ? `0${index + 1}` : index + 1}.jpg`;
-
-      //Declare constants for downloading so the code looks neat. used for fs.writeFileSync
-      const filePath = `./memes/${fileName}`; // where to save
-      const imageUrl = new URL(src, websiteUrl); // create an absolute URL
-
-      fetch(imageUrl.href)
-        .then((response) => {
-          if (response.ok) {
-            return response.arrayBuffer(); // return the image data as ArrayBuffer
-          } else {
-            throw new Error(`Failed to download image: ${response.statusText}`);
-          }
-        })
-        .then((imageBuffer) => {
-          fs.writeFileSync(filePath, Buffer.from(imageBuffer)); // convert the ArrayBuffer to Buffer
-          console.log(`Downloaded and saved ${fileName}`);
-        })
-        .catch((error) => {
-          console.error(`Error downloading image: ${error.message}`);
-        });
-    }
-  })
-  .catch((error) => {
-    console.error('Error:', error.message);
+function saveImage(urls, filepath) {
+  client.get(urls, (res) => {
+    res.pipe(fs.createWriteStream(filepath));
   });
+}
+
+// creating a folder called meme
+
+if (!fs.existsSync(folderPath)) {
+  // check if folder already exists
+  fs.mkdirSync(folderPath); // creating folder
+}
+
+// saving filtered image urls to an array
+
+const filteredUrls = await filterImageUrls(responseText);
+
+console.log(filteredUrls);
+
+// looping through images and assigning download location and
+
+let counter = 1;
+const dec = 0;
+
+for (let i = 0; i < filteredUrls.length; i++) {
+  // console.log(filteredUrls[i]);
+  counter = i + 1;
+
+  if (i < 9) {
+    saveImage(filteredUrls[i], folderPath + `/${dec}${counter}.jpg`);
+  } else {
+    saveImage(filteredUrls[i], folderPath + `/${counter}.jpg`);
+  }
+}
