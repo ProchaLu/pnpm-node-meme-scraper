@@ -1,55 +1,71 @@
 import fs from 'node:fs';
-import client from 'node:https';
+import { get } from 'node:https';
+import cliProgress from 'cli-progress';
+import { parse } from 'node-html-parser';
 
 const memeUrl = 'https://memegen-link-examples-upleveled.netlify.app/';
-const folderPath = './memes';
+const memeFolder = './memes/';
 
-// fetch function for HTML & possibly more (the images)
-// translating response into text and saving it in responseText
-const response = await fetch(memeUrl);
-const responseText = await response.text();
-
-// defining function declaration for filtering the responseText for image urls by using regex
-function filterImageUrls(data) {
-  const regEx = /src="https:\/\/api.*\.jpg\?width=300/g;
-  let match;
-  const results = [];
-  let i = 0;
-  while ((match = regEx.exec(data)) !== null && i < 10) {
-    // console.log(match[0].slice(5));
-    results.push(match[0].slice(5));
-    i++;
-  }
-  return results;
+// Create memes directory if necessary
+if (!fs.existsSync(memeFolder)) {
+  fs.mkdirSync(memeFolder);
 }
 
-// defining function declaration for downloading images
+// Wrapping https get request in promise that resolves once all data has been received
+function asyncHttpsGet(url, encoding) {
+  return new Promise((resolve, reject) => {
+    let dataBuffer = '';
 
-function saveImage(urls, filepath) {
-  client.get(urls, (res) => {
-    res.pipe(fs.createWriteStream(filepath));
+    get(url, (res) => {
+      // Set encoding
+      res.setEncoding(encoding);
+
+      // Bundle incoming data stream
+      res.on('data', (data) => {
+        dataBuffer = dataBuffer + data;
+      });
+
+      // Resolve when all data has been received
+      res.on('end', () => {
+        resolve(dataBuffer);
+      });
+    }).on('error', (error) => {
+      reject(error);
+    });
   });
 }
 
-// creating a folder called meme
-if (!fs.existsSync(folderPath)) {
-  // check if folder already exists
-  fs.mkdirSync(folderPath);
+// Setup progress bar
+const progressBar = new cliProgress.SingleBar(
+  {},
+  cliProgress.Presets.shades_classic,
+);
+console.log('\n Downloading images ...\n');
+progressBar.start(10, 0);
+
+// Make https get request to meme url and wait until all html data is received
+const htmlPageAsString = await asyncHttpsGet(memeUrl, 'utf-8');
+// Parse the html string data into an htmlElement object (library: node-html-parser)
+const htmlRoot = parse(htmlPageAsString);
+
+// Extract source url of all images
+const imgSection = htmlRoot.getElementById('images');
+const allImages = imgSection.getElementsByTagName('img');
+const allImagesSrc = allImages.map((imgHtmlElement) => {
+  return imgHtmlElement.getAttribute('src');
+});
+
+// Load the first 10 images and save to memes folder in local file system
+for (let i = 0; i < 10; i++) {
+  fs.writeFileSync(
+    memeFolder + (i + 1).toString().padStart(2, '0') + '.jpg',
+    await asyncHttpsGet(allImagesSrc[i], 'base64'),
+    'base64',
+  );
+
+  progressBar.increment();
 }
 
-// saving filtered image urls to an array
-const filteredUrls = await filterImageUrls(responseText);
-
-// looping through images and assigning download location and
-let counter = 1;
-const dec = 0;
-
-for (let i = 0; i < filteredUrls.length; i++) {
-  counter = i + 1;
-
-  if (i < 9) {
-    saveImage(filteredUrls[i], folderPath + `/${dec}${counter}.jpg`);
-  } else {
-    saveImage(filteredUrls[i], folderPath + `/${counter}.jpg`);
-  }
-}
+// Stop progress bar
+progressBar.stop();
+console.log('\n Done.');
